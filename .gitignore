@@ -1,0 +1,11 @@
+# Node
+node-app/node_modules
+node-app/.env
+
+# Terraform
+terraform-in1/.terraform
+terraform-in1/terraform.tfstate
+terraform-in1/terraform.tfstate.backup
+
+# Keys
+*.pem
