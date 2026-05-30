@@ -7,7 +7,7 @@ const app = express();
 const PORT = 3000;
 
 // Carpeta de imágenes
-const uploadDir = '/data/images';
+const uploadDir = './data/images';
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
 }
