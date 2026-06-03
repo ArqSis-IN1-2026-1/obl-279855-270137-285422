@@ -10,6 +10,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@aws-sdk/client-sqs": "^3.1060.0",
     "express": "^5.2.1",
     "multer": "^2.1.1"
   }

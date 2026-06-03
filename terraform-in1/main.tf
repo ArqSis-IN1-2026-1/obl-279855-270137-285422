@@ -26,3 +26,17 @@ module "ec2" {
 
   name = "node-app"
 }
+
+module "sqs" {
+
+  source = "./modules/sqs"
+
+  queue_name = "articles-queue"
+}
+
+module "lambda" {
+
+  source = "./modules/lambda"
+
+  queue_arn = module.sqs.queue_arn
+}

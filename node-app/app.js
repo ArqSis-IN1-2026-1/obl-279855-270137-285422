@@ -6,6 +6,31 @@ const fs = require('fs');
 const app = express();
 const PORT = 3000;
 
+const {
+    SQSClient,
+    SendMessageCommand
+} = require("@aws-sdk/client-sqs");
+
+const sqs = new SQSClient({
+
+    region: "us-east-1"
+});
+
+app.get("/generate", async (req, res) => {
+
+    await sqs.send(new SendMessageCommand({
+
+        QueueUrl: "https://sqs.us-east-1.amazonaws.com/717221858869/articles-queue",
+
+        MessageBody: JSON.stringify({
+
+            title: "Artículo automático"
+        })
+    }));
+
+    res.send("Solicitud enviada a Lambda");
+});
+
 // Carpeta de imágenes
 const uploadDir = './data/images';
 if (!fs.existsSync(uploadDir)) {
