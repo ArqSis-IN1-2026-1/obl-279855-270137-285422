@@ -24,6 +24,8 @@ module "ec2" {
 
   security_group_id = module.security_ec2.security_group_id
 
+  instance_profile_name = module.ec2_iam.instance_profile_name
+
   name = "node-app"
 }
 
@@ -37,6 +39,13 @@ module "sqs" {
 module "lambda" {
 
   source = "./modules/lambda"
+
+  queue_arn = module.sqs.queue_arn
+}
+
+module "ec2_iam" {
+
+  source = "./modules/ec2_iam"
 
   queue_arn = module.sqs.queue_arn
 }
