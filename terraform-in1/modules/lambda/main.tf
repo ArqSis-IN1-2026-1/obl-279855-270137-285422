@@ -68,6 +68,7 @@ resource "aws_lambda_function" "this" {
   runtime = "nodejs20.x"
 
   source_code_hash = filebase64sha256("lambda.zip")
+
 }
 
 resource "aws_lambda_event_source_mapping" "this" {

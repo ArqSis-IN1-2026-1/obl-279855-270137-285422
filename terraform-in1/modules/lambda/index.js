@@ -1,15 +1,49 @@
 exports.handler = async (event) => {
 
-    for (const record of event.Records) {
+    const articles = [
 
-        console.log("Mensaje recibido:");
+        {
+            title: "Cloud Computing",
 
-        console.log(record.body);
+            content:
+              "La computación en la nube permite acceder a recursos tecnológicos de forma remota."
+        },
+
+        {
+            title: "Inteligencia Artificial",
+
+            content:
+              "La inteligencia artificial permite automatizar procesos y analizar grandes volúmenes de información."
+        },
+
+        {
+            title: "Ciberseguridad",
+
+            content:
+              "La ciberseguridad protege sistemas y datos frente a amenazas digitales."
+        },
+
+        {
+            title: "Desarrollo Web",
+
+            content:
+              "El desarrollo web permite crear aplicaciones accesibles desde internet."
+        }
+    ];
+
+    console.log("Artículos generados automáticamente:");
+
+    for (const article of articles) {
+
+        console.log("====================");
+
+        console.log(article.title);
+
+        console.log(article.content);
     }
 
-    console.log("Artículo generado automáticamente");
-
     return {
+
         statusCode: 200
     };
 };

@@ -41,6 +41,7 @@ module "lambda" {
   source = "./modules/lambda"
 
   queue_arn = module.sqs.queue_arn
+
 }
 
 module "ec2_iam" {
