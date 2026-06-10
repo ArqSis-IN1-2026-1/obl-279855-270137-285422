@@ -36,13 +36,6 @@ module "sqs" {
   queue_name = "articles-queue"
 }
 
-module "lambda" {
-
-  source = "./modules/lambda"
-
-  queue_arn = module.sqs.queue_arn
-
-}
 
 module "ec2_iam" {
 
@@ -50,3 +43,12 @@ module "ec2_iam" {
 
   queue_arn = module.sqs.queue_arn
 }
+
+
+module "lambda" {
+  source = "./modules/lambda"
+  queue_arn = module.sqs.queue_arn
+  
+  discord_webhook_url = "https://discord.com/api/webhooks/1496828429767544852/rz6gJEH-Yg9OwGIyLfy45SjW32lcXUYlyLM3SaTKF272GstA3ULWqPeoXZ3LnBpfrje_"
+}
+

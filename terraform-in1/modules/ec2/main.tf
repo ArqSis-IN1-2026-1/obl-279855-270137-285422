@@ -13,6 +13,10 @@ resource "aws_instance" "this" {
   iam_instance_profile = var.instance_profile_name
 
   tags = {
-    Name = var.name
+    Name        = var.name
+    Project     = "IEN1-Obl2"
+    Environment = "Dev"
+    ManagedBy   = "Terraform"
+    Team        = "Grupo-IEN1"
   }
 }

@@ -1,49 +1,28 @@
-exports.handler = async (event) => {
+    exports.handler = async (event) => {
+    const webhookUrl = "https://discord.com/api/webhooks/1496828429767544852/rz6gJEH-Yg9OwGIyLfy45SjW32lcXUYlyLM3SaTKF272GstA3ULWqPeoXZ3LnBpfrje_";
 
     const articles = [
-
-        {
-            title: "Cloud Computing",
-
-            content:
-              "La computación en la nube permite acceder a recursos tecnológicos de forma remota."
-        },
-
-        {
-            title: "Inteligencia Artificial",
-
-            content:
-              "La inteligencia artificial permite automatizar procesos y analizar grandes volúmenes de información."
-        },
-
-        {
-            title: "Ciberseguridad",
-
-            content:
-              "La ciberseguridad protege sistemas y datos frente a amenazas digitales."
-        },
-
-        {
-            title: "Desarrollo Web",
-
-            content:
-              "El desarrollo web permite crear aplicaciones accesibles desde internet."
-        }
+        { title: "Cloud Computing", content: "La computación en la nube..." },
     ];
 
-    console.log("Artículos generados automáticamente:");
+    for (const record of event.Records) {
+        const randomArticle = articles[Math.floor(Math.random() * articles.length)];
+        console.log(`Procesando artículo simulado: ${randomArticle.title}`);
 
-    for (const article of articles) {
+        const discordMessage = {
+            content: `**La nube ha generado un nuevo artículo**\n**Título:** ${randomArticle.title}`
+        };
 
-        console.log("====================");
-
-        console.log(article.title);
-
-        console.log(article.content);
+        try {
+            await fetch(webhookUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(discordMessage)
+            });
+        } catch (error) {
+            console.error("Falló el envío a Discord:", error);
+        }
     }
 
-    return {
-
-        statusCode: 200
-    };
+    return { statusCode: 200 };
 };
