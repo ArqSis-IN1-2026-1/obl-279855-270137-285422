@@ -50,3 +50,7 @@ module "lambda" {
   discord_webhook_url = "https://discord.com/api/webhooks/1496828429767544852/rz6gJEH-Yg9OwGIyLfy45SjW32lcXUYlyLM3SaTKF272GstA3ULWqPeoXZ3LnBpfrje_"
 }
 
+module "rds" {
+  source                = "./modules/rds"
+  ec2_security_group_id = module.security_ec2.security_group_id 
+}
