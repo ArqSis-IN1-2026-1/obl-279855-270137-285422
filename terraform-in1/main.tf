@@ -20,8 +20,6 @@ module "ec2" {
 
   instance_type = "t3.micro"
 
-  key_name = "in1-key"
-
   security_group_id = module.security_ec2.security_group_id
 
   instance_profile_name = module.ec2_iam.instance_profile_name

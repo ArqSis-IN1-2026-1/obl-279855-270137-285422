@@ -20,7 +20,7 @@ app.get("/generate", async (req, res) => {
 
     await sqs.send(new SendMessageCommand({
 
-        QueueUrl: "https://sqs.us-east-1.amazonaws.com/717221858869/articles-queue",
+        QueueUrl: "https://sqs.us-east-1.amazonaws.com/735234196682/articles-queue",
 
         MessageBody: JSON.stringify({
 
