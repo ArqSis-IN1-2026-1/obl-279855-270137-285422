@@ -12,18 +12,15 @@ const {
 } = require("@aws-sdk/client-sqs");
 
 const sqs = new SQSClient({
-
-    region: "us-east-1"
+    region: process.env.AWS_REGION || "us-east-1"
 });
 
+const QUEUE_URL = process.env.QUEUE_URL || "https://sqs.us-east-1.amazonaws.com/717221858869/articles-queue";
+
 app.get("/generate", async (req, res) => {
-
     await sqs.send(new SendMessageCommand({
-
-        QueueUrl: "https://sqs.us-east-1.amazonaws.com/717221858869/articles-queue",
-
+        QueueUrl: QUEUE_URL,
         MessageBody: JSON.stringify({
-
             title: "Artículo automático"
         })
     }));
