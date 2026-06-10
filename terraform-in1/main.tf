@@ -43,17 +43,17 @@ module "ec2" {
     set -e
     exec > /var/log/userdata.log 2>&1
 
-    echo "=== [1/4] Instalando Node.js y PM2 ==="
+    # node y pm2
     curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
     apt-get install -y nodejs
     npm install -g pm2
 
-    echo "=== [2/4] Creando directorios de logs ==="
+    # carpeta para los logs de la app (la lee el agente de cloudwatch)
     mkdir -p /var/log/node-app
     chown ubuntu:ubuntu /var/log/node-app
     chmod 755 /var/log/node-app
 
-    echo "=== [3/4] Instalando CloudWatch Agent ==="
+    # cloudwatch agent
     ARCH=$(dpkg --print-architecture)
     wget -q "https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/$${ARCH}/latest/amazon-cloudwatch-agent.deb"
     dpkg -i amazon-cloudwatch-agent.deb
@@ -116,7 +116,7 @@ module "ec2" {
     systemctl enable amazon-cloudwatch-agent
     systemctl start amazon-cloudwatch-agent
 
-    echo "=== [4/4] Script de arranque de la app ==="
+    # script para arrancar la app (se corre a mano despues de clonar el repo)
     cat > /home/ubuntu/start-app.sh << 'STARTSCRIPT'
     #!/bin/bash
     APP_DIR=""
@@ -143,7 +143,7 @@ module "ec2" {
     chmod +x /home/ubuntu/start-app.sh
     chown ubuntu:ubuntu /home/ubuntu/start-app.sh
 
-    echo "=== Setup completo ==="
+    echo "setup listo"
   EOF
 }
 

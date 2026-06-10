@@ -1,5 +1,5 @@
-# Log groups de CloudWatch — logs centralizados e independientes de los servidores.
-# Lambda crea su propio log group automáticamente; no lo gestionamos acá.
+# Log groups para los logs de la app y del sistema.
+# El de Lambda lo crea AWS solo, no hace falta declararlo.
 
 resource "aws_cloudwatch_log_group" "node_app" {
   name              = "/in1-obl2/node-app"
