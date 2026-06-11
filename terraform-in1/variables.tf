@@ -24,7 +24,7 @@ variable "instance_type" {
 variable "bastion_instance_type" {
   description = "Tipo de instancia para el bastion"
   type        = string
-  default     = "t2.micro"
+  default     = "t3.micro"
 }
 
 variable "key_name" {
