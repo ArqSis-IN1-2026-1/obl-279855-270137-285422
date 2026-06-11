@@ -9,3 +9,4 @@ key_name           = "in1-key"
 sqs_queue_name     = "articles-queue"
 allowed_ssh_cidr   = "0.0.0.0/0" # en producción iría la IP del developer
 log_retention_days = 14
+bastion_instance_type = "t3.micro"

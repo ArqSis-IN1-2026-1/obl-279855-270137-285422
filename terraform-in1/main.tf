@@ -153,32 +153,49 @@ module "ec2" {
     systemctl enable amazon-cloudwatch-agent
     systemctl start amazon-cloudwatch-agent
 
-    cat > /home/ubuntu/start-app.sh << 'STARTSCRIPT'
-    #!/bin/bash
-    APP_DIR=""
-    for dir in /home/ubuntu/obl-279855-270137-285422/node-app /home/ubuntu/node-app /home/ubuntu/app; do
-      if [ -f "$dir/app.js" ]; then
-        APP_DIR="$dir"
-        break
-      fi
-    done
+    # script para arrancar la app
+    apt-get update
+    apt-get install -y unzip awscli
 
-    if [ -z "$APP_DIR" ]; then
-      echo "ERROR: No se encontró app.js. Clonar el repo primero."
-      exit 1
-    fi
+    mkdir -p /home/ubuntu/app
 
-    cd "$APP_DIR"
-    QUEUE_URL="$${QUEUE_URL:-}" pm2 start app.js \
+    aws s3 cp s3://in1-node-app-deploy-717221858869/node-app.zip /tmp/node-app.zip
+
+    unzip /tmp/node-app.zip -d /home/ubuntu/app
+
+    cd /home/ubuntu/app
+
+    npm install
+
+    pm2 start app.js \
       --name node-app \
       --output /var/log/node-app/out.log \
       --error /var/log/node-app/error.log
-    pm2 save
-    STARTSCRIPT
 
-    chmod +x /home/ubuntu/start-app.sh
-    chown ubuntu:ubuntu /home/ubuntu/start-app.sh
+    pm2 save
 
     echo "setup listo"
   EOF
+}
+
+module "sqs" {
+  source = "./modules/sqs"
+
+  queue_name = var.sqs_queue_name
+}
+
+module "lambda" {
+  source = "./modules/lambda"
+
+  queue_arn = module.sqs.queue_arn
+}
+
+module "logging" {
+  source = "./modules/logging"
+
+  retention_days = var.log_retention_days
+}
+
+module "deploy_bucket" {
+  source = "./modules/deploy_bucket"
 }
