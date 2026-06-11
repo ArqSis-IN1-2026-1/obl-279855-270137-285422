@@ -4,6 +4,7 @@ const path = require('path');
 const mysql = require('mysql2/promise');
 const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+const { SQSClient, SendMessageCommand } = require('@aws-sdk/client-sqs');
 
 const app = express();
 const PORT = 3000;
@@ -13,18 +14,17 @@ const [dbHost, dbPort] = dbHostInput.split(':');
 
 const dbConfig = {
     host: dbHost,
-    port: dbPort ? Number(dbPort) : 3306, 
+    port: dbPort ? Number(dbPort) : 3306,
     user: process.env.DB_USER || 'admin',
     password: process.env.DB_PASSWORD || 'PasswordSeguraIEN1',
     database: process.env.DB_NAME || 'obligatorio_db'
 };
 
-const s3 = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' });
+const awsRegion = process.env.AWS_REGION || 'us-east-1';
+const s3 = new S3Client({ region: awsRegion });
+const sqs = new SQSClient({ region: awsRegion });
 const imageBucketName = process.env.S3_BUCKET_NAME || '';
-
-const { SQSClient, SendMessageCommand } = require("@aws-sdk/client-sqs");
-
-const sqs = new SQSClient({ region: "us-east-1" });
+const queueUrl = process.env.QUEUE_URL || 'https://sqs.us-east-1.amazonaws.com/735234196682/articles-queue';
 
 async function initDB() {
     try {
@@ -34,7 +34,7 @@ async function initDB() {
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 title VARCHAR(255) NOT NULL,
                 content TEXT,
-                image VARCHAR(255)
+                image VARCHAR(512)
             )
         `);
         await connection.end();
@@ -43,8 +43,6 @@ async function initDB() {
         console.error('No se pudo conectar a la base de datos RDS:', error.message);
     }
 }
-
-initDB();
 
 async function uploadImageToS3(file) {
     if (!file) {
@@ -90,26 +88,25 @@ async function resolveImageUrl(imageValue) {
     );
 }
 
-app.get("/generate", async (req, res) => {
-    try {
-        await sqs.send(new SendMessageCommand({
-            QueueUrl: "https://sqs.us-east-1.amazonaws.com/735234196682/articles-queue",
-            MessageBody: JSON.stringify({
-                title: "Artículo automático desde /generate"
-            })
-        }));
-        res.send("Solicitud enviada a Lambda exitosamente");
-    } catch (error) {
-        console.error("Error en /generate:", error);
-        res.status(500).send("Falló el envío a SQS");
-    }
-});
-
 const upload = multer({ storage: multer.memoryStorage() });
 
 app.use(express.urlencoded({ extended: true }));
 
-// Página principal HTML
+app.get('/generate', async (req, res) => {
+    try {
+        await sqs.send(new SendMessageCommand({
+            QueueUrl: queueUrl,
+            MessageBody: JSON.stringify({
+                title: 'Artículo automático desde /generate'
+            })
+        }));
+        res.send('Solicitud enviada a Lambda exitosamente');
+    } catch (error) {
+        console.error('Error en /generate:', error);
+        res.status(500).send('Falló el envío a SQS');
+    }
+});
+
 app.get('/', async (req, res) => {
     let html = `
         <h1>Artículos</h1>
@@ -121,19 +118,22 @@ app.get('/', async (req, res) => {
         </form>
         <hr/>
     `;
+
     try {
         const connection = await mysql.createConnection(dbConfig);
         const [rows] = await connection.query('SELECT * FROM articles ORDER BY id DESC');
         await connection.end();
 
-        const renderedRows = await Promise.all(rows.map(async (a) => ({
-            ...a,
-            imageUrl: await resolveImageUrl(a.image)
+        const renderedRows = await Promise.all(rows.map(async (article) => ({
+            ...article,
+            imageUrl: await resolveImageUrl(article.image)
         })));
 
-        renderedRows.forEach(a => {
-            html += `<h2>${a.title}</h2><p>${a.content || ''}</p>`;
-            if (a.imageUrl) html += `<img src="${a.imageUrl}" width="200"/>`;
+        renderedRows.forEach((article) => {
+            html += `<h2>${article.title}</h2><p>${article.content || ''}</p>`;
+            if (article.imageUrl) {
+                html += `<img src="${article.imageUrl}" width="200"/>`;
+            }
         });
     } catch (error) {
         html += '<p style="color:red;">Error al cargar articulos desde la base de datos.</p>';
@@ -142,8 +142,6 @@ app.get('/', async (req, res) => {
 
     res.send(html);
 });
-
-// publicar del HTML
 
 app.post('/add', upload.single('image'), async (req, res) => {
     const { title, content } = req.body;
@@ -158,12 +156,13 @@ app.post('/add', upload.single('image'), async (req, res) => {
         await connection.end();
 
         await sqs.send(new SendMessageCommand({
-            QueueUrl: "https://sqs.us-east-1.amazonaws.com/735234196682/articles-queue",
+            QueueUrl: queueUrl,
             MessageBody: JSON.stringify({
-                title: title,
-                content: content
+                title,
+                content
             })
         }));
+
         console.log(`Articulo "${title}" guardado en RDS y enviado a SQS.`);
     } catch (error) {
         console.error('Error en el proceso de publicacion:', error.message);
@@ -171,6 +170,8 @@ app.post('/add', upload.single('image'), async (req, res) => {
 
     res.redirect('/');
 });
+
+initDB();
 
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Servidor corriendo en http://localhost:${PORT}`);

@@ -41,7 +41,59 @@ resource "aws_iam_role_policy" "sqs_policy" {
         ]
 
         Resource = var.queue_arn
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy" "cloudwatch_policy" {
+
+  name = "ec2-cloudwatch-write-only"
+
+  role = aws_iam_role.ec2_role.id
+
+  policy = jsonencode({
+
+    Version = "2012-10-17"
+
+    Statement = [
+
+      {
+        Effect = "Allow"
+
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+          "logs:DescribeLogStreams"
+        ]
+
+        Resource = [
+          "arn:aws:logs:*:*:log-group:/in1-obl2/*",
+          "arn:aws:logs:*:*:log-group:/in1-obl2/*:log-stream:*"
+        ]
       },
+
+      {
+        Effect   = "Allow"
+        Action   = ["cloudwatch:PutMetricData"]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy" "s3_policy" {
+
+  name = "ec2-s3-object-access"
+
+  role = aws_iam_role.ec2_role.id
+
+  policy = jsonencode({
+
+    Version = "2012-10-17"
+
+    Statement = [
 
       {
         Effect = "Allow"

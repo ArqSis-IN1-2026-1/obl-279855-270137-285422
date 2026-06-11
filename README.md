@@ -1,25 +1,28 @@
 # Proyecto IEN1 - OBL 2
 
-Este repositorio contiene una solución completa con infraestructura en AWS y una aplicación Node.js para publicar y visualizar artículos con imágenes.
+Este repositorio contiene una solución completa con infraestructura en AWS, una aplicación Node.js y un sitio institucional estático.
 
 ## Resumen
 
-La arquitectura quedó dividida en tres partes:
+La arquitectura combina estos componentes:
 
-1. **Sitio institucional estático**: se publica en un bucket S3 desde Terraform y sirve como cara pública del proyecto.
+1. **Sitio institucional estático**: se publica en S3 y funciona como cara pública de la empresa InfraOrt.
 2. **Aplicación Node.js**: corre en una EC2, guarda artículos en RDS MySQL, sube imágenes a S3 y envía mensajes a SQS.
-3. **Servicios AWS de soporte**: EC2, RDS, SQS y Lambda para el flujo asincrónico.
+3. **Bastion para SSH**: permite acceder por SSH a la infraestructura de forma controlada.
+4. **Servicios de soporte**: RDS, SQS, Lambda, CloudWatch y grupos de seguridad administrados con Terraform.
 
 ## Estructura del repositorio
 
-- `node-app/`: aplicación Express con formularios, carga de imágenes, persistencia en RDS y envío a SQS.
+- `node-app/`: aplicación Express con formulario, persistencia en RDS y subida de imágenes a S3.
 - `terraform-in1/`: infraestructura como código para AWS.
 - `terraform-in1/modules/static_site/`: sitio institucional estático publicado en S3.
-- `terraform-in1/modules/ec2/`: instancia EC2 donde corre la app.
+- `terraform-in1/modules/bastion/`: instancia bastion para acceso SSH.
+- `terraform-in1/modules/ec2/`: instancia donde corre la app Node.
 - `terraform-in1/modules/rds/`: base de datos MySQL administrada.
 - `terraform-in1/modules/sqs/`: cola para desacoplar eventos.
 - `terraform-in1/modules/lambda/`: consumidor asincrónico de la cola.
-- `terraform-in1/modules/ec2_iam/`: permisos IAM para la instancia.
+- `terraform-in1/modules/ec2_iam/`: permisos IAM para la instancia EC2.
+- `terraform-in1/modules/logging/`: grupos de logs de CloudWatch.
 
 ## Cómo funciona
 
@@ -31,11 +34,11 @@ El contenido público del sitio se genera con archivos simples:
 - `style.css`
 - `assets/`
 
-Terraform publica estos archivos en el bucket S3 del módulo `static_site`, dejando el sitio accesible por la URL del bucket website.
+Terraform publica estos archivos en el bucket S3 del módulo `static_site`, dejando el sitio accesible por la URL del website endpoint.
 
 ### 2. Aplicación Node.js
 
-La app vive en `node-app/app.js` y hace tres cosas principales:
+La app vive en `node-app/app.js` y hace tres tareas principales:
 
 - Renderiza una vista HTML con artículos leídos desde RDS.
 - Permite crear artículos con título, contenido e imagen.
@@ -62,6 +65,14 @@ Las imágenes ya no se guardan en disco local:
 - La app guarda la key del objeto en RDS.
 - Al listar artículos, la app genera una URL firmada para mostrar la imagen.
 
+### 5. Bastion para SSH
+
+La rama `develop-arreglos` agregó un bastion para entrar por SSH sin exponer directamente la instancia de aplicación.
+
+- El bastion recibe conexiones SSH desde el CIDR permitido.
+- La EC2 de la aplicación acepta SSH solo desde el security group del bastion.
+- Las instrucciones de conexión quedan expuestas en los outputs de Terraform.
+
 ## Flujo de publicación
 
 1. El usuario completa el formulario del sitio.
@@ -76,10 +87,12 @@ Las imágenes ya no se guardan en disco local:
 Terraform administra estos recursos:
 
 - `EC2` para correr la app.
+- `Bastion` para acceso SSH.
 - `RDS MySQL` para persistencia.
 - `SQS` para mensajería.
 - `Lambda` como consumidor del evento.
 - `S3` para el sitio institucional y para las imágenes.
+- `CloudWatch` para logs.
 - `Security Groups` para controlar acceso entre componentes.
 
 ## Configuración importante
@@ -91,13 +104,16 @@ Terraform administra estos recursos:
 - `DB_PASSWORD`
 - `DB_NAME`
 - `S3_BUCKET_NAME`
+- `QUEUE_URL`
 - `AWS_REGION`
 
-En la EC2, `S3_BUCKET_NAME` se exporta automáticamente mediante `user_data` en Terraform.
+En la EC2, estas variables se exportan mediante `user_data` de Terraform.
 
 ### Outputs útiles de Terraform
 
 - `public_ip`: IP pública de la EC2.
+- `bastion_ip`: IP pública del bastion.
+- `ssh_instrucciones`: instrucciones de conexión por bastion.
 - `queue_url`: URL de la cola SQS.
 - `rds_endpoint`: endpoint de la base MySQL.
 - `images_bucket_name`: bucket donde se guardan las imágenes.
@@ -126,7 +142,14 @@ También incluye meta tags para SEO y Open Graph, y un diseño responsive mobile
 1. Ir a `terraform-in1`.
 2. Ejecutar `terraform init`.
 3. Ejecutar `terraform apply`.
-4. Tomar los outputs para conectar la app y abrir el sitio.
+4. Tomar los outputs para conectar la app, acceder por SSH y abrir el sitio.
+
+## Acceso SSH
+
+Con el bastion desplegado, el acceso recomendado es:
+
+- Entrar al bastion con la key configurada en AWS.
+- Desde allí conectarse a la IP privada de la EC2 de la aplicación.
 
 ## Notas finales
 
@@ -135,4 +158,5 @@ La solución quedó pensada para una entrega académica con foco en:
 - infraestructura reproducible,
 - persistencia real en base de datos,
 - separación entre sitio público y aplicación,
+- acceso SSH más seguro mediante bastion,
 - y un flujo simple de publicación de contenido.
