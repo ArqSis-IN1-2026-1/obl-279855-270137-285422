@@ -43,10 +43,15 @@ module "rds" {
   ec2_security_group_id = module.security_ec2.security_group_id
 }
 
+module "deploy_bucket" {
+  source = "./modules/deploy_bucket"
+}
+
 module "ec2_iam" {
-  source     = "./modules/ec2_iam"
-  queue_arn  = module.sqs.queue_arn
-  bucket_arn = module.static_site.bucket_arn
+  source            = "./modules/ec2_iam"
+  queue_arn         = module.sqs.queue_arn
+  bucket_arn        = module.static_site.bucket_arn
+  deploy_bucket_arn = module.deploy_bucket.bucket_arn
 }
 
 module "lambda" {
@@ -159,13 +164,17 @@ module "ec2" {
 
     mkdir -p /home/ubuntu/app
 
-    aws s3 cp s3://in1-node-app-deploy-717221858869/node-app.zip /tmp/node-app.zip
+    aws s3 cp s3://${module.deploy_bucket.bucket_name}/node-app.zip /tmp/node-app.zip
 
     unzip /tmp/node-app.zip -d /home/ubuntu/app
 
     cd /home/ubuntu/app
 
     npm install
+
+    set -a
+    source /etc/environment
+    set +a
 
     pm2 start app.js \
       --name node-app \
@@ -176,26 +185,4 @@ module "ec2" {
 
     echo "setup listo"
   EOF
-}
-
-module "sqs" {
-  source = "./modules/sqs"
-
-  queue_name = var.sqs_queue_name
-}
-
-module "lambda" {
-  source = "./modules/lambda"
-
-  queue_arn = module.sqs.queue_arn
-}
-
-module "logging" {
-  source = "./modules/logging"
-
-  retention_days = var.log_retention_days
-}
-
-module "deploy_bucket" {
-  source = "./modules/deploy_bucket"
 }
