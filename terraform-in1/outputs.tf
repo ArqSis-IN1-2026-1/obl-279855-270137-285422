@@ -7,3 +7,8 @@ output "queue_url" {
 
   value = module.sqs.queue_url
 }
+
+output "rds_endpoint" {
+
+  value = module.rds.rds_endpoint
+}

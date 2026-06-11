@@ -10,6 +10,8 @@ resource "aws_instance" "this" {
 
   iam_instance_profile = var.instance_profile_name
 
+  key_name = var.key_name
+
   tags = {
     Name        = var.name
     Project     = "IEN1-Obl2"
