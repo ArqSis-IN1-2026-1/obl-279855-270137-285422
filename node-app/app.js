@@ -1,8 +1,9 @@
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
 const mysql = require('mysql2/promise');
+const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
 const app = express();
 const PORT = 3000;
@@ -17,6 +18,9 @@ const dbConfig = {
     password: process.env.DB_PASSWORD || 'PasswordSeguraIEN1',
     database: process.env.DB_NAME || 'obligatorio_db'
 };
+
+const s3 = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' });
+const imageBucketName = process.env.S3_BUCKET_NAME || '';
 
 const { SQSClient, SendMessageCommand } = require("@aws-sdk/client-sqs");
 
@@ -42,6 +46,50 @@ async function initDB() {
 
 initDB();
 
+async function uploadImageToS3(file) {
+    if (!file) {
+        return null;
+    }
+
+    if (!imageBucketName) {
+        throw new Error('S3_BUCKET_NAME no esta configurada');
+    }
+
+    const objectKey = `images/${Date.now()}${path.extname(file.originalname)}`;
+
+    await s3.send(new PutObjectCommand({
+        Bucket: imageBucketName,
+        Key: objectKey,
+        Body: file.buffer,
+        ContentType: file.mimetype
+    }));
+
+    return objectKey;
+}
+
+async function resolveImageUrl(imageValue) {
+    if (!imageValue) {
+        return null;
+    }
+
+    if (imageValue.startsWith('http://') || imageValue.startsWith('https://')) {
+        return imageValue;
+    }
+
+    if (!imageBucketName) {
+        return imageValue;
+    }
+
+    return getSignedUrl(
+        s3,
+        new GetObjectCommand({
+            Bucket: imageBucketName,
+            Key: imageValue
+        }),
+        { expiresIn: 3600 }
+    );
+}
+
 app.get("/generate", async (req, res) => {
     try {
         await sqs.send(new SendMessageCommand({
@@ -57,19 +105,9 @@ app.get("/generate", async (req, res) => {
     }
 });
 
-
-const uploadDir = './data/images';
-if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-}
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => cb(null, uploadDir),
-    filename: (req, file, cb) => cb(null, Date.now() + path.extname(file.originalname))
-});
-const upload = multer({ storage });
+const upload = multer({ storage: multer.memoryStorage() });
 
 app.use(express.urlencoded({ extended: true }));
-app.use('/images', express.static(uploadDir));
 
 // Página principal HTML
 app.get('/', async (req, res) => {
@@ -88,9 +126,14 @@ app.get('/', async (req, res) => {
         const [rows] = await connection.query('SELECT * FROM articles ORDER BY id DESC');
         await connection.end();
 
-        rows.forEach(a => {
+        const renderedRows = await Promise.all(rows.map(async (a) => ({
+            ...a,
+            imageUrl: await resolveImageUrl(a.image)
+        })));
+
+        renderedRows.forEach(a => {
             html += `<h2>${a.title}</h2><p>${a.content || ''}</p>`;
-            if (a.image) html += `<img src="/images/${a.image}" width="200"/>`;
+            if (a.imageUrl) html += `<img src="${a.imageUrl}" width="200"/>`;
         });
     } catch (error) {
         html += '<p style="color:red;">Error al cargar articulos desde la base de datos.</p>';
@@ -104,7 +147,7 @@ app.get('/', async (req, res) => {
 
 app.post('/add', upload.single('image'), async (req, res) => {
     const { title, content } = req.body;
-    const image = req.file ? req.file.filename : null;
+    const image = req.file ? await uploadImageToS3(req.file) : null;
 
     try {
         const connection = await mysql.createConnection(dbConfig);

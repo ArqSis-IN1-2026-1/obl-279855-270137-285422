@@ -12,6 +12,11 @@ resource "aws_instance" "this" {
 
   key_name = var.key_name
 
+  user_data = <<-EOF
+#!/bin/bash
+echo "export S3_BUCKET_NAME=articles-images-obl2-735234196682" >> /etc/environment
+EOF
+
   tags = {
     Name        = var.name
     Project     = "IEN1-Obl2"

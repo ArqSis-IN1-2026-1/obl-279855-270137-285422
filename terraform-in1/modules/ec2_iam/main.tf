@@ -41,6 +41,17 @@ resource "aws_iam_role_policy" "sqs_policy" {
         ]
 
         Resource = var.queue_arn
+      },
+
+      {
+        Effect = "Allow"
+
+        Action = [
+          "s3:PutObject",
+          "s3:GetObject"
+        ]
+
+        Resource = "${var.bucket_arn}/*"
       }
     ]
   })

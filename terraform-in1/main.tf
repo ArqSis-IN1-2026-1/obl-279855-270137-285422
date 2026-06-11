@@ -24,8 +24,9 @@ module "sqs" {
 }
 
 module "ec2_iam" {
-  source    = "./modules/ec2_iam"
-  queue_arn = module.sqs.queue_arn
+  source     = "./modules/ec2_iam"
+  queue_arn  = module.sqs.queue_arn
+  bucket_arn = module.static_site.bucket_arn
 }
 
 module "lambda" {
@@ -37,5 +38,10 @@ module "lambda" {
 module "rds" {
   source                = "./modules/rds"
   ec2_security_group_id = module.security_ec2.security_group_id 
+}
+
+module "static_site" {
+  source      = "./modules/static_site"
+  bucket_name  = "articles-images-obl2-735234196682"
 }
 
