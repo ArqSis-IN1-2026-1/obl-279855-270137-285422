@@ -2,13 +2,45 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const mysql = require('mysql2/promise');
 
 const app = express();
 const PORT = 3000;
 
+const dbHostInput = process.env.DB_HOST || 'terraform-20260610110030931700000001.c8zmm4w621rn.us-east-1.rds.amazonaws.com';
+const [dbHost, dbPort] = dbHostInput.split(':');
+
+const dbConfig = {
+    host: dbHost,
+    port: dbPort ? Number(dbPort) : 3306, 
+    user: process.env.DB_USER || 'admin',
+    password: process.env.DB_PASSWORD || 'PasswordSeguraIEN1',
+    database: process.env.DB_NAME || 'obligatorio_db'
+};
+
 const { SQSClient, SendMessageCommand } = require("@aws-sdk/client-sqs");
 
 const sqs = new SQSClient({ region: "us-east-1" });
+
+async function initDB() {
+    try {
+        const connection = await mysql.createConnection(dbConfig);
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS articles (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                title VARCHAR(255) NOT NULL,
+                content TEXT,
+                image VARCHAR(255)
+            )
+        `);
+        await connection.end();
+        console.log('Conexion a RDS exitosa y tabla verificada.');
+    } catch (error) {
+        console.error('No se pudo conectar a la base de datos RDS:', error.message);
+    }
+}
+
+initDB();
 
 app.get("/generate", async (req, res) => {
     try {
@@ -39,10 +71,8 @@ const upload = multer({ storage });
 app.use(express.urlencoded({ extended: true }));
 app.use('/images', express.static(uploadDir));
 
-let articles = [];
-
 // Página principal HTML
-app.get('/', (req, res) => {
+app.get('/', async (req, res) => {
     let html = `
         <h1>Artículos</h1>
         <form method="POST" action="/add" enctype="multipart/form-data">
@@ -53,10 +83,20 @@ app.get('/', (req, res) => {
         </form>
         <hr/>
     `;
-    articles.forEach(a => {
-        html += `<h2>${a.title}</h2><p>${a.content}</p>`;
-        if (a.image) html += `<img src="/images/${a.image}" width="200"/>`;
-    });
+    try {
+        const connection = await mysql.createConnection(dbConfig);
+        const [rows] = await connection.query('SELECT * FROM articles ORDER BY id DESC');
+        await connection.end();
+
+        rows.forEach(a => {
+            html += `<h2>${a.title}</h2><p>${a.content || ''}</p>`;
+            if (a.image) html += `<img src="/images/${a.image}" width="200"/>`;
+        });
+    } catch (error) {
+        html += '<p style="color:red;">Error al cargar articulos desde la base de datos.</p>';
+        console.error('Error leyendo articulos de RDS:', error.message);
+    }
+
     res.send(html);
 });
 
@@ -66,9 +106,14 @@ app.post('/add', upload.single('image'), async (req, res) => {
     const { title, content } = req.body;
     const image = req.file ? req.file.filename : null;
 
-    articles.push({ title, content, image });
-
     try {
+        const connection = await mysql.createConnection(dbConfig);
+        await connection.query(
+            'INSERT INTO articles (title, content, image) VALUES (?, ?, ?)',
+            [title, content, image]
+        );
+        await connection.end();
+
         await sqs.send(new SendMessageCommand({
             QueueUrl: "https://sqs.us-east-1.amazonaws.com/735234196682/articles-queue",
             MessageBody: JSON.stringify({
@@ -76,9 +121,9 @@ app.post('/add', upload.single('image'), async (req, res) => {
                 content: content
             })
         }));
-        console.log(`Mensaje de "${title}" enviado a SQS correctamente.`);
+        console.log(`Articulo "${title}" guardado en RDS y enviado a SQS.`);
     } catch (error) {
-        console.error("Falló el envío a SQS desde el formulario:", error);
+        console.error('Error en el proceso de publicacion:', error.message);
     }
 
     res.redirect('/');
