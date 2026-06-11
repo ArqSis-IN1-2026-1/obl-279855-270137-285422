@@ -8,6 +8,7 @@
 - AWS CLI configurado con credenciales (`aws configure`)
 - Key Pair `in1-key` creado en AWS (región us-east-1)
 - Archivo `lambda.zip` en `terraform-in1/` (contiene el código de la función Lambda)
+- Archivo node-app.zip en la raíz del proyecto (contiene la aplicación Node.js)
 
 ## Despliegue
 
@@ -41,28 +42,38 @@ log_retention_days = 30          # Más retención de logs
 
 ## Conexión SSH (via Bastion)
 
+Conexión al bastion:
 ```bash
-# Al bastion:
 ssh -i in1-key.pem ubuntu@<BASTION_IP>
-
-# Al node-app (via bastion con ProxyJump):
-ssh -i in1-key.pem -J ubuntu@<BASTION_IP> ubuntu@<NODE_PRIVATE_IP>
+```
+Conexión al node-app desde el bastion:
+```bash
+ssh -i ~/in1-key.pem ubuntu@<NODE_PRIVATE_IP>
 ```
 
 Las IPs aparecen en los outputs de `terraform apply`.
 
-## Arrancar la aplicación
+### Verificación del despliegue
+Una vez finalizado terraform apply, esperar aproximadamente 2 o 3 minutos para que termine la ejecución del script de inicialización de la EC2.
 
-Después del deploy, conectarse al node-app via bastion y correr:
+### Verificar PM2
+Dentro de la instancia node-app ejecutar:
+pm2 list
 
-```bash
-git clone https://github.com/ArqSis-IN1-2026-1/obl-279855-270137-285422.git
-cd obl-279855-270137-285422/node-app
-npm install
-bash ~/start-app.sh
-```
+El proceso node-app debe aparecer con estado online.
 
-La app queda en `http://<NODE_PUBLIC_IP>:3000`
+### Acceso desde navegador
+La aplicación queda disponible en:
+
+http://<NODE-APP_PUBLIC_IP>:3000
+
+## Integración SQS + Lambda
+Acceder a:
+http://<NODE_PUBLIC_IP>:3000/generate
+
+Esto envía un mensaje a SQS y dispara la ejecución de la función Lambda.
+
+Las ejecuciones pueden verificarse desde CloudWatch Logs.
 
 ## Destruir la infraestructura
 
@@ -70,13 +81,3 @@ La app queda en `http://<NODE_PUBLIC_IP>:3000`
 terraform destroy
 ```
 
-## Estructura de módulos
-
-| Módulo | Requisito | Qué hace |
-|--------|-----------|----------|
-| `ec2` | 1, 2 | Instancia del servidor node-app |
-| `security` | 8 | Security Groups (puertos 3000 y 22) |
-| `sqs` | 3 | Cola de mensajes para artículos |
-| `lambda` | 3 | Función serverless que procesa artículos |
-| `ec2_iam` | 8 | Roles y políticas IAM para EC2 |
-| `bastion` | 9 | Bastion host para SSH sin exposición directa |
